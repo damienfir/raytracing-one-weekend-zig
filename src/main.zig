@@ -14,6 +14,7 @@ const Color = color.Color;
 const Ray = ray.Ray;
 const Allocator = std.mem.Allocator;
 const Sphere = objects.Sphere;
+const MovingSphere = objects.MovingSphere;
 const Lambertian = material.Lambertian;
 const Metal = material.Metal;
 const Dielectric = material.Dielectric;
@@ -40,8 +41,9 @@ fn random_scene(allocator: *Allocator) !objects.HittableList {
                     const albedo = Color.random().mulv(Color.random());
                     const sphere_material = try allocator.create(Lambertian);
                     sphere_material.* = Lambertian.init(albedo);
-                    const sphere = try allocator.create(Sphere);
-                    sphere.* = Sphere.init(center, 0.2, &sphere_material.material);
+                    const center2 = center.add(Vec3.new(0, utils.rand_float_range(0, 0.5), 0));
+                    const sphere = try allocator.create(MovingSphere);
+                    sphere.* = MovingSphere.init(center, center2, 0, 1, 0.2, &sphere_material.material);
                     try world.add(&sphere.hittable);
                 } else if (choose_mat < 0.95) {
                     const albedo = Color.random_range(0.5, 1);
@@ -130,10 +132,10 @@ pub fn main() anyerror!void {
     const stdout = std.io.getStdOut().writer();
     const stderr = std.io.getStdErr().writer();
 
-    const aspect_ratio = 3.0 / 2.0;
-    const image_width = 1200;
+    const aspect_ratio = 16.0 / 9.0;
+    const image_width = 400;
     const image_height = @floatToInt(u32, @intToFloat(f32, image_width) / aspect_ratio);
-    const samples_per_pixel = 500;
+    const samples_per_pixel = 200;
     const max_depth = 50;
 
     var world = try random_scene(allocator);
@@ -142,7 +144,17 @@ pub fn main() anyerror!void {
     const lookat = Point3.new(0, 0, 0);
     const vup = Vec3.new(0, 1, 0);
     const dist_to_focus = 10.0;
-    const camera = Camera.init(lookfrom, lookat, vup, 20.0, aspect_ratio, 0.1, dist_to_focus);
+    const camera = Camera.init(
+        lookfrom,
+        lookat,
+        vup,
+        20.0,
+        aspect_ratio,
+        0.1,
+        dist_to_focus,
+        0,
+        1,
+    );
 
     try stdout.print("P3\n{} {}\n255\n", .{ image_width, image_height });
 

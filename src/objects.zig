@@ -85,7 +85,76 @@ pub const Sphere = struct {
     }
 };
 
-    const test_allocator = std.testing.allocator;
+pub const MovingSphere = struct {
+    const Self = @This();
+
+    hittable: Hittable,
+    material: *Material,
+    center0: Point3,
+    center1: Point3,
+    time0: f32,
+    time1: f32,
+    radius: f32,
+
+    pub fn init(
+        center0: Point3,
+        center1: Point3,
+        time0: f32,
+        time1: f32,
+        radius: f32,
+        mat: *Material,
+    ) Self {
+        return Self{
+            .hittable = Hittable{ .hitFn = hit },
+            .material = mat,
+            .center0 = center0,
+            .center1 = center1,
+            .time0 = time0,
+            .time1 = time1,
+            .radius = radius,
+        };
+    }
+
+    fn center(self: *Self, t: f32) Point3 {
+        const time_factor = (t - self.time0) / (self.time1 - self.time0);
+        return self.center0.add(self.center1.sub(self.center0).mul(time_factor));
+    }
+
+    pub fn hit(hittable: *Hittable, r: Ray, t_min: f32, t_max: f32) ?HitRecord {
+        const self = @fieldParentPtr(Self, "hittable", hittable);
+        const oc = r.orig.sub(self.center(r.time));
+        const a = r.dir.length_squared();
+        const half_b = oc.dot(r.dir);
+        const c = oc.length_squared() - self.radius * self.radius;
+        const discriminant = half_b * half_b - a * c;
+        if (discriminant < 0) {
+            return null;
+        }
+        const sqrtd = @sqrt(discriminant);
+
+        var root = (-half_b - sqrtd) / a;
+        if (root < t_min or root > t_max) {
+            // try other solution
+            root = (-half_b + sqrtd) / a;
+            if (root < t_min or root > t_max) {
+                return null;
+            }
+        }
+
+        const p = r.at(root);
+        const outward_normal = (p.sub(self.center(r.time))).div(self.radius);
+        const front_face = r.dir.dot(outward_normal) < 0;
+        var rec: HitRecord = undefined;
+        rec.t = root;
+        rec.p = p;
+        rec.normal = if (front_face) outward_normal else outward_normal.neg();
+        rec.front_face = front_face;
+        rec.material = self.material;
+        return rec;
+    }
+};
+
+const test_allocator = std.testing.allocator;
 
 pub const HittableList = struct {
     const Self = @This();

@@ -36,7 +36,7 @@ pub const Lambertian = struct {
         const self = @fieldParentPtr(Lambertian, "material", material);
 
         const direction = vec3.random_in_hemisphere(record.normal);
-        const new_ray = Ray{ .orig = record.p, .dir = direction };
+        const new_ray = Ray{ .orig = record.p, .dir = direction, .time = r.time };
         return MaterialRecord{
             .ray = new_ray,
             .attenuation = self.albedo,
@@ -65,7 +65,7 @@ pub const Metal = struct {
 
         if (fuzzed.dot(record.normal) > 0) {
             return MaterialRecord{
-                .ray = Ray{ .orig = record.p, .dir = fuzzed },
+                .ray = Ray{ .orig = record.p, .dir = fuzzed, .time = r.time },
                 .attenuation = self.albedo,
             };
         } else {
@@ -105,6 +105,7 @@ pub const Dielectric = struct {
         const refracted = Ray{
             .orig = record.p,
             .dir = direction,
+            .time = r.time,
         };
 
         return MaterialRecord{

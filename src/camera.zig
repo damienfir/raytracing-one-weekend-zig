@@ -16,6 +16,8 @@ pub const Camera = struct {
     v: Vec3,
     w: Vec3,
     lens_radius: f32,
+    time0: f32,
+    time1: f32,
 
     pub fn init(
         lookfrom: Point3,
@@ -25,6 +27,8 @@ pub const Camera = struct {
         aspect_ratio: f32,
         aperture: f32,
         focus_dist: f32,
+        time0: f32,
+        time1: f32,
     ) Camera {
         const theta = utils.degrees_to_radians(vfov);
         const h = std.math.tan(theta / 2.0);
@@ -46,6 +50,8 @@ pub const Camera = struct {
         camera.v = v;
         camera.w = w;
         camera.lens_radius = aperture / 2.0;
+        camera.time0 = time0;
+        camera.time1 = time1;
         return camera;
     }
 
@@ -55,6 +61,7 @@ pub const Camera = struct {
         return Ray{
             .orig = self.origin.add(offset),
             .dir = self.lower_left_corner.add(self.horizontal.mul(s)).add(self.vertical.mul(t)).sub(self.origin).sub(offset),
+            .time = utils.rand_float_range(self.time0, self.time1),
         };
     }
 };
