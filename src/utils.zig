@@ -19,3 +19,7 @@ pub fn clamp(x: f32, min: f32, max: f32) f32 {
     if (x > max) return max;
     return x;
 }
+
+pub fn rand_int(a: i32, b: i32) i32 {
+    return @floatToInt(i32, rand_float_range(@intToFloat(f32, a), @intToFloat(f32, b)));
+}

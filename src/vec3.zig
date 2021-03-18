@@ -103,6 +103,15 @@ pub const Vec3 = struct {
             .z = utils.rand_float_range(min, max),
         };
     }
+
+    pub fn at(self: Vec3, axis: u8) f32 {
+        return switch(axis) {
+            0 => self.x,
+            1 => self.y,
+            2 => self.z,
+            else => unreachable
+        };
+    }
 };
 
 pub const Point3 = Vec3;

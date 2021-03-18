@@ -15,6 +15,7 @@ const Ray = ray.Ray;
 const Allocator = std.mem.Allocator;
 const Sphere = objects.Sphere;
 const MovingSphere = objects.MovingSphere;
+const BVHNode = objects.BVHNode;
 const Lambertian = material.Lambertian;
 const Metal = material.Metal;
 const Dielectric = material.Dielectric;
@@ -138,7 +139,8 @@ pub fn main() anyerror!void {
     const samples_per_pixel = 200;
     const max_depth = 50;
 
-    var world = try random_scene(allocator);
+    var world_ = try random_scene(allocator);
+    var world = try BVHNode.init(allocator, world_, 0, 1);
 
     const lookfrom = Point3.new(13, 2, 3);
     const lookat = Point3.new(0, 0, 0);
