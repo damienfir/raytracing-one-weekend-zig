@@ -7,6 +7,8 @@ const objects = @import("objects.zig");
 const Camera = @import("camera.zig").Camera;
 const utils = @import("utils.zig");
 const material = @import("material.zig");
+const texture = @import("texture.zig");
+const CheckerTexture = texture.CheckerTexture;
 
 const Vec3 = vec3.Vec3;
 const Point3 = vec3.Point3;
@@ -19,12 +21,16 @@ const BVHNode = objects.BVHNode;
 const Lambertian = material.Lambertian;
 const Metal = material.Metal;
 const Dielectric = material.Dielectric;
+const HittableList = objects.HittableList;
 
-fn random_scene(allocator: *Allocator) !objects.HittableList {
-    var world = objects.HittableList.init(allocator);
+fn random_scene(allocator: *Allocator) !HittableList {
+    var world = HittableList.init(allocator);
+
+    const ground_texture = try allocator.create(CheckerTexture);
+    ground_texture.* = try CheckerTexture.init(allocator, Color.new(0.2, 0.3, 0.1), Color.new(0.9, 0.9, 0.9));
 
     const ground_material = try allocator.create(Lambertian);
-    ground_material.* = Lambertian.init(Color.new(0.5, 0.5, 0.5));
+    ground_material.* = Lambertian.init_tex(&ground_texture.texture);
 
     const ground_sphere = try allocator.create(Sphere);
     ground_sphere.* = Sphere.init(Point3.new(0, -1000, 0), 1000, &ground_material.material);
@@ -41,7 +47,7 @@ fn random_scene(allocator: *Allocator) !objects.HittableList {
                 if (choose_mat < 0.8) {
                     const albedo = Color.random().mulv(Color.random());
                     const sphere_material = try allocator.create(Lambertian);
-                    sphere_material.* = Lambertian.init(albedo);
+                    sphere_material.* = try Lambertian.init(allocator, albedo);
                     const center2 = center.add(Vec3.new(0, utils.rand_float_range(0, 0.5), 0));
                     const sphere = try allocator.create(MovingSphere);
                     sphere.* = MovingSphere.init(center, center2, 0, 1, 0.2, &sphere_material.material);
@@ -72,7 +78,7 @@ fn random_scene(allocator: *Allocator) !objects.HittableList {
     try world.add(&sphere1.hittable);
 
     const material2 = try allocator.create(Lambertian);
-    material2.* = Lambertian.init(Color.new(0.4, 0.2, 0.1));
+    material2.* = try Lambertian.init(allocator, Color.new(0.4, 0.2, 0.1));
     const sphere2 = try allocator.create(Sphere);
     sphere2.* = Sphere.init(Point3.new(-4, 1, 0), 1.0, &material2.material);
     try world.add(&sphere2.hittable);
@@ -86,26 +92,24 @@ fn random_scene(allocator: *Allocator) !objects.HittableList {
     return world;
 }
 
-// fn basic_scene() objects.HittableList {
-//     var material_ground = material.Lambertian.init(Color.new(0.8, 0.8, 0.0));
-//     var material_center = material.Lambertian.init(Color.new(0.1, 0.2, 0.5));
-//     var material_left = material.Dielectric.init(1.5);
-//     var material_right = material.Metal.init(Color.new(0.8, 0.6, 0.2), 1.0);
+fn two_spheres(allocator: *Allocator) !HittableList {
+    const checker = try allocator.create(CheckerTexture);
+    checker.* = try CheckerTexture.init(allocator, Color.new(0.2, 0.3, 0.1), Color.new(0.9, 0.9, 0.9));
 
-//     var sphere1 = objects.Sphere.init(Point3.new(0, 0, -1), 0.5, &material_center.material);
-//     var sphere2 = objects.Sphere.init(Point3.new(0, -100.5, -1), 100, &material_ground.material);
-//     var sphere3 = objects.Sphere.init(Point3.new(-1, 0, -1), 0.5, &material_left.material);
-//     var sphere4 = objects.Sphere.init(Point3.new(1, 0, -1), 0.5, &material_right.material);
-//     var sphere5 = objects.Sphere.init(Point3.new(-1, 0, -1), -0.4, &material_left.material);
+    const mat = try allocator.create(Lambertian);
+    mat.* = Lambertian.init_tex(&checker.texture);
 
-//     var world = objects.HittableList.init();
-//     try world.add(&sphere1.hittable);
-//     try world.add(&sphere2.hittable);
-//     try world.add(&sphere3.hittable);
-//     try world.add(&sphere4.hittable);
-//     try world.add(&sphere5.hittable);
-//     return world;
-// }
+    const sphere1 = try allocator.create(Sphere);
+    sphere1.* = Sphere.init(Point3.new(0, -10, 0), 10, &mat.material);
+
+    const sphere2 = try allocator.create(Sphere);
+    sphere2.* = Sphere.init(Point3.new(0, 10, 0), 10, &mat.material);
+
+    var list = HittableList.init(allocator);
+    try list.add(&sphere1.hittable);
+    try list.add(&sphere2.hittable);
+    return list;
+}
 
 fn ray_color(r: Ray, world: *objects.Hittable, depth: u32) Color {
     if (depth <= 0) return Color.new(0, 0, 0);
@@ -139,24 +143,44 @@ pub fn main() anyerror!void {
     const samples_per_pixel = 200;
     const max_depth = 50;
 
-    var world_ = try random_scene(allocator);
-    var world = try BVHNode.init(allocator, world_, 0, 1);
+    var world_: HittableList = undefined;
 
-    const lookfrom = Point3.new(13, 2, 3);
-    const lookat = Point3.new(0, 0, 0);
+    var lookfrom: Point3 = undefined;
+    var lookat: Point3 = undefined;
+    var vfov: f32 = 40.0;
+    var aperture: f32 = 0.0;
+
+    switch (0) {
+        1 => {
+            world_ = try random_scene(allocator);
+            lookfrom = Point3.new(13, 2, 3);
+            lookat = Point3.new(0, 0, 0);
+            vfov = 20.0;
+            aperture = 0.1;
+        },
+        else => {
+            world_ = try two_spheres(allocator);
+            lookfrom = Point3.new(13, 2, 3);
+            lookat = Point3.new(0, 0, 0);
+            vfov = 20.0;
+        },
+    }
+
     const vup = Vec3.new(0, 1, 0);
     const dist_to_focus = 10.0;
     const camera = Camera.init(
         lookfrom,
         lookat,
         vup,
-        20.0,
+        vfov,
         aspect_ratio,
-        0.1,
+        aperture,
         dist_to_focus,
         0,
         1,
     );
+
+    var world = try BVHNode.init(allocator, world_, 0, 1);
 
     try stdout.print("P3\n{} {}\n255\n", .{ image_width, image_height });
 

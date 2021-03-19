@@ -1,13 +1,17 @@
 const std = @import("std");
 const vec3 = @import("vec3.zig");
 const ray = @import("ray.zig");
-const color = @import("color.zig");
+const Color = @import("color.zig").Color;
 const Ray = ray.Ray;
-const Color = color.Color;
 
 const objects = @import("objects.zig");
 const HitRecord = objects.HitRecord;
 const utils = @import("utils.zig");
+
+const texture = @import("texture.zig");
+const Texture = texture.Texture;
+const SolidColor = texture.SolidColor;
+const Allocator = std.mem.Allocator;
 
 pub const Material = struct {
     scatterFn: fn (self: *Material, r: Ray, hit: HitRecord) ?MaterialRecord,
@@ -23,9 +27,15 @@ pub const MaterialRecord = struct {
 
 pub const Lambertian = struct {
     material: Material,
-    albedo: Color,
+    albedo: *Texture,
 
-    pub fn init(albedo: Color) Lambertian {
+    pub fn init(allocator: *Allocator, albedo: Color) !Lambertian {
+        const color = try allocator.create(SolidColor);
+        color.* = SolidColor.init(albedo.x, albedo.y, albedo.z);
+        return Lambertian.init_tex(&color.texture);
+    }
+
+    pub fn init_tex(albedo: *Texture) Lambertian {
         return Lambertian{
             .material = Material{ .scatterFn = scatter },
             .albedo = albedo,
@@ -39,7 +49,7 @@ pub const Lambertian = struct {
         const new_ray = Ray{ .orig = record.p, .dir = direction, .time = r.time };
         return MaterialRecord{
             .ray = new_ray,
-            .attenuation = self.albedo,
+            .attenuation = self.albedo.value(record.u, record.v, record.p),
         };
     }
 };

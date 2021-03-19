@@ -34,6 +34,8 @@ pub const HitRecord = struct {
     p: Point3,
     normal: Vec3,
     t: f32,
+    u: f32,
+    v: f32,
     front_face: bool,
     material: *Material,
 
@@ -94,6 +96,9 @@ pub const Sphere = struct {
         rec.normal = if (front_face) outward_normal else outward_normal.neg();
         rec.front_face = front_face;
         rec.material = self.material;
+        const uv = get_sphere_uv(outward_normal);
+        rec.u = uv.u;
+        rec.v = uv.v;
         return rec;
     }
 
@@ -103,6 +108,20 @@ pub const Sphere = struct {
         return sphere_bounding_box(self.center, self.radius);
     }
 };
+
+const UV = struct {
+    u: f32,
+    v: f32,
+};
+
+fn get_sphere_uv(p: Point3) UV {
+    const theta = std.math.acos(-p.y);
+    const phi = std.math.atan2(f32, -p.z, p.x) + std.math.pi;
+    return UV{
+        .u = phi / (2.0 * std.math.pi),
+        .v = theta / std.math.pi,
+    };
+}
 
 fn sphere_bounding_box(center: Point3, radius: f32) AABB {
     return AABB{
